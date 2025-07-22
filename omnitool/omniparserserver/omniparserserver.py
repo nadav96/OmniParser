@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import argparse
 import uvicorn
+from fastapi.middleware.cors import CORSMiddleware
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root_dir)
 from util.omniparser import Omniparser
@@ -29,6 +30,15 @@ args = parse_arguments()
 config = vars(args)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 omniparser = Omniparser(config)
 
 class ParseRequest(BaseModel):
