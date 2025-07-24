@@ -5,8 +5,9 @@ python -m omniparserserver --som_model_path ../../weights/icon_detect/model.pt -
 import sys
 import os
 import time
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
+import logging
 import argparse
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,6 +40,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+logger = logging.getLogger("uvicorn.access")
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    t0 = time.perf_counter()
+    body = await request.body()
+    logger.debug(
+        ">> %s %s  qs=%s  hdr=%s  body=%s",
+        request.method, request.url.path, request.url.query, dict(request.headers), body[:200]
+    )
+    response = await call_next(request)
+    dt = (time.perf_counter() - t0) * 1000
+    logger.debug(
+        "<< %s %s  status=%d  %.1f ms",
+        request.method, request.url.path, response.status_code, dt
+    )
+    return response
+
 omniparser = Omniparser(config)
 
 class ParseRequest(BaseModel):
@@ -58,4 +77,8 @@ async def root():
     return {"message": "Omniparser API ready"}
 
 if __name__ == "__main__":
-    uvicorn.run("omniparserserver:app", host=args.host, port=args.port, reload=True)
+
+    # Enable full DEBUG logging
+    logging.basicConfig(level=logging.DEBUG)
+    
+    uvicorn.run("omniparserserver:app", host=args.host, port=args.port, log_level="debug", reload=True)
