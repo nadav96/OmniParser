@@ -2,7 +2,7 @@ torch==2.7.1
 easyocr==1.7.2
 torchvision==0.22.1
 supervision==0.18.0
-openai==1.63
+openai==1.63.0
 transformers==4.51.1
 ultralytics==8.3.70
 azure-identity==1.23.1
