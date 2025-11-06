@@ -10,6 +10,10 @@ from pydantic import BaseModel
 import logging
 import argparse
 import uvicorn
+import base64
+import io
+import uuid
+from PIL import Image
 from fastapi.middleware.cors import CORSMiddleware
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root_dir)
@@ -40,7 +44,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logger = logging.getLogger("uvicorn.access")
+logger = logging.getLogger("omniparser")
+uploads_dir = os.path.join(root_dir, "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -63,10 +69,21 @@ omniparser = Omniparser(config)
 class ParseRequest(BaseModel):
     base64_image: str
 
+@app.post("/parse")
 @app.post("/parse/")
 async def parse(parse_request: ParseRequest):
     print('start parsing...')
     start = time.time()
+    try:
+        image_bytes = base64.b64decode(parse_request.base64_image)
+        img = Image.open(io.BytesIO(image_bytes))
+        ext = (img.format or "PNG").lower()
+        filename = f"{int(time.time()*1000)}_{uuid.uuid4().hex[:8]}.{ext}"
+        save_path = os.path.join(uploads_dir, filename)
+        img.save(save_path)
+        logger.info("Saved input image to %s", save_path)
+    except Exception as e:
+        logger.warning("Failed to save input image: %s", e)
     dino_labled_img, parsed_content_list = omniparser.parse(parse_request.base64_image)
     latency = time.time() - start
     print('time:', latency)
