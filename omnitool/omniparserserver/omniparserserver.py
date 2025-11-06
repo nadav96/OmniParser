@@ -17,7 +17,7 @@ from PIL import Image
 from fastapi.middleware.cors import CORSMiddleware
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root_dir)
-from util.omniparser import Omniparser
+from util.omniparser import Omniparser, open_image_from_base64
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Omniparser API')
@@ -35,6 +35,7 @@ args = parse_arguments()
 config = vars(args)
 
 app = FastAPI()
+app.router.redirect_slashes = False
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,6 +46,13 @@ app.add_middleware(
 )
 
 logger = logging.getLogger("omniparser")
+logger.setLevel(logging.DEBUG)
+_handler = logging.StreamHandler()
+_handler.setLevel(logging.DEBUG)
+_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
+logger.handlers = []
+logger.addHandler(_handler)
+logger.propagate = False
 uploads_dir = os.path.join(root_dir, "uploads")
 os.makedirs(uploads_dir, exist_ok=True)
 
@@ -75,8 +83,7 @@ async def parse(parse_request: ParseRequest):
     print('start parsing...')
     start = time.time()
     try:
-        image_bytes = base64.b64decode(parse_request.base64_image)
-        img = Image.open(io.BytesIO(image_bytes))
+        img = open_image_from_base64(parse_request.base64_image)
         ext = (img.format or "PNG").lower()
         filename = f"{int(time.time()*1000)}_{uuid.uuid4().hex[:8]}.{ext}"
         save_path = os.path.join(uploads_dir, filename)
